@@ -1,15 +1,24 @@
 // ジェスチャーの種類
-// 👍(Thumb_Up), 👎(Thumb_Down), ✌️(Victory), 
-// ☝️(Pointng_Up), ✊(Closed_Fist), 👋(Open_Palm), 
-// 🤟(ILoveYou)
+// 1️⃣(one_samples),2️⃣(two_samples), 3️⃣(three_samples), 
+// 4️⃣(four_samples), 5️⃣(five_samples), 👍(good_samples), 
+// 🤟(aloha_samples),✊(zero_samples)
 function getCode(left_gesture, right_gesture) {
+
+//追加
+  left_gesture = left_gesture.replace(/-/g, '_');
+  right_gesture = right_gesture.replace(/-/g, '_');
+
   let code_array = {
-    "Thumb_Up": 1,
-    "Thumb_Down": 2,
-    "Victory": 3,
-    "Pointing_Up": 4,
-    "Closed_Fist": 5,
-    "Open_Palm": 6,
+    "zero_samples": 0,
+    "one_samples": 1,
+    "two_samples": 2,
+    "three_samples": 3,
+    "four_samples": 4,
+
+    "five_samples": 5,
+    "good_samples": 6,
+    "aloha_samples": 7,
+
   }
   let left_code = code_array[left_gesture];
   let right_code = code_array[right_gesture];
@@ -20,14 +29,26 @@ function getCode(left_gesture, right_gesture) {
 
 function getCharacter(code) {
   const codeToChar = {
-    "11": "a", "12": "b", "13": "c", "14": "d", "15": "e", "16": "f",
-    "21": "g", "22": "h", "23": "i", "24": "j", "25": "k", "26": "l",
-    "31": "m", "32": "n", "33": "o", "34": "p", "35": "q", "36": "r",
-    "41": "s", "42": "t", "43": "u", "44": "v", "45": "w", "46": "x",
-    "51": "y", "52": "z", "53": " ", "54": "backspace"
+    "00": "a", "01": "b", "02": "c", "03": "d", "04": "e",
+    "10": "f", "11": "g", "12": "h", "13": "i", "77": "j",
+    "20": "k", "21": "l", "22": "m", "23": "n", "24": "o",
+    "30": "p", "31": "q", "32": "r", "33": "s", "34": "t",
+    "40": "u", "41": "v", "42": "w", "43": "x", "44": "y",
+    "07": "z", "17": " ", "27": "backspace"
   };
   return codeToChar[code] || "";
 }
+
+//the       → 34 12 04
+// quick     → 31 40 13 02 20
+// brown     → 01 32 24 42 23
+// fox       → 10 24 43
+// jumps     → 77 40 22 30 33
+// over      → 24 41 04 32
+// the       → 34 12 04
+// lazy      → 21 00 07 44
+// dog       → 03 24 11
+
 
 // 入力サンプル文章 
 let sample_texts = [
@@ -54,47 +75,109 @@ function setup() {
   p5canvas = createCanvas(320, 240);
   p5canvas.parent('#canvas');
 
-  // When gestures are found, the following function is called. The detection results are stored in results.
-  let lastChar = "";
-  let lastCharTime = millis();
+//追加部分
+let lastChar = "";
+let lastCharTime = millis();
+let sameCharCount = 0; // 同じ文字が何回連続したか
 
-  gotGestures = function (results) {
-    gestures_results = results;
+gotGestures = function (results) {
+  gestures_results = results;
 
-    if (results.gestures.length == 2) {
-      if (game_mode.now == "ready" && game_mode.previous == "notready") {
-        // ゲーム開始前の状態から、カメラが起動した後の状態に変化した場合
-        game_mode.previous = game_mode.now;
-        game_mode.now = "playing";
-        document.querySelector('input').value = ""; // 入力欄をクリア
-        game_start_time = millis(); // ゲーム開始時間を記録
-      }
-      let left_gesture;
-      let right_gesture;
-      if (results.handedness[0][0].categoryName == "Left") {
-        left_gesture = results.gestures[0][0].categoryName;
-        right_gesture = results.gestures[1][0].categoryName;
-      } else {
-        left_gesture = results.gestures[1][0].categoryName;
-        right_gesture = results.gestures[0][0].categoryName;
-      }
-      let code = getCode(left_gesture, right_gesture);
-      let c = getCharacter(code);
+  if (results.gestures.length == 2) {
+    if (game_mode.now == "ready" && game_mode.previous == "notready") {
+      game_mode.previous = game_mode.now;
+      game_mode.now = "playing";
+      document.querySelector('input').value = "";
+      game_start_time = millis();
+    }
+    let left_gesture;
+    let right_gesture;
+    if (results.handednesses[0][0].categoryName == "Left") {
+      left_gesture = results.gestures[0][0].categoryName;
+      right_gesture = results.gestures[1][0].categoryName;
+    } else {
+      left_gesture = results.gestures[1][0].categoryName;
+      right_gesture = results.gestures[0][0].categoryName;
+    }
+    let code = getCode(left_gesture, right_gesture);
+    let c = getCharacter(code);
 
-      let now = millis();
-      if (c === lastChar) {
-        if (now - lastCharTime > 1000) {
-          // 1秒以上cが同じ値である場合の処理
-          typeChar(c);
-          lastCharTime = now;
-        }
-      } else {
-        lastChar = c;
+    let now = millis();
+    if (c === lastChar) {
+      // 同じ文字の場合は通常より長い待機時間（2000ms）
+      if (now - lastCharTime > 2000) {
+        typeChar(c);
         lastCharTime = now;
       }
-    }
+  //   } else {
+  //   // 文字が変わった場合：即座にlastCharを更新し、typeCharも呼ぶ
+  //   lastChar = c;
+  //   lastCharTime = now;
+  //   sameCharCount = 0;
+  //   if (c !== "") {
+  //     typeChar(c);
+  //   }
+  // }
 
+
+  } else {
+  // 文字が変わった場合
+  if (now - lastCharTime > 500) { // ← この数字をいじる
+    lastChar = c;
+    lastCharTime = now;
+    sameCharCount = 0;
+    if (c !== "") {
+      typeChar(c);
+    }
   }
+}
+    }
+}
+
+
+
+  // // When gestures are found, the following function is called. The detection results are stored in results.
+  // let lastChar = "";
+  // let lastCharTime = millis();
+
+  // gotGestures = function (results) {
+  //   gestures_results = results;
+
+  //   if (results.gestures.length == 2) {
+  //     if (game_mode.now == "ready" && game_mode.previous == "notready") {
+  //       // ゲーム開始前の状態から、カメラが起動した後の状態に変化した場合
+  //       game_mode.previous = game_mode.now;
+  //       game_mode.now = "playing";
+  //       document.querySelector('input').value = ""; // 入力欄をクリア
+  //       game_start_time = millis(); // ゲーム開始時間を記録
+  //     }
+  //     let left_gesture;
+  //     let right_gesture;
+  //     //if (results.handedness[0][0].categoryName == "Left") {
+  //     if (results.handednesses[0][0].categoryName == "Left") {
+  //       left_gesture = results.gestures[0][0].categoryName;
+  //       right_gesture = results.gestures[1][0].categoryName;
+  //     } else {
+  //       left_gesture = results.gestures[1][0].categoryName;
+  //       right_gesture = results.gestures[0][0].categoryName;
+  //     }
+  //     let code = getCode(left_gesture, right_gesture);
+  //     let c = getCharacter(code);
+
+  //     let now = millis();
+  //     if (c === lastChar) {
+  //       if (now - lastCharTime > 200) {
+  //         // 200ms以上cが同じ値である場合の処理
+  //         typeChar(c);
+  //         lastCharTime = now;
+  //       }
+  //     } else {
+  //       lastChar = c;
+  //       lastCharTime = now;
+  //     }
+  //   }
+
+  // }
 }
 
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
